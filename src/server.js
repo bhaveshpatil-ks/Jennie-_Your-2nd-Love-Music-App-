@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { connectDB, isDbConnected } from './config/db.js';
 import { apiRouter } from './routes/index.js';
@@ -12,12 +14,40 @@ const PORT = process.env.PORT || 5000;
 // Initialize Database Connection
 connectDB();
 
-// Global Middleware
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+// Security Headers (Helmet)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false,
 }));
-app.use(express.json());
+
+// Rate Limiting to prevent API abuse / DoS
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // Limit each IP to 300 requests per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again after 15 minutes.',
+  },
+});
+app.use('/api/', apiLimiter);
+
+// Global CORS Middleware
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()) 
+  : '*';
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Request body size limit
+app.use(express.json({ limit: '500kb' }));
+app.use(express.urlencoded({ extended: true, limit: '500kb' }));
 
 // Mount API Routes
 app.use('/api', apiRouter);
@@ -26,7 +56,7 @@ app.use('/api', apiRouter);
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'Lora Music API',
+    service: 'Jennie Music API',
     databaseConnected: isDbConnected(),
     jamendoConfigured: Boolean(process.env.JAMENDO_CLIENT_ID),
     timestamp: new Date().toISOString(),
@@ -36,7 +66,7 @@ app.get('/health', (req, res) => {
 // API Root Index
 app.get('/', (req, res) => {
   res.json({
-    name: 'Lora Music Streaming API',
+    name: 'Jennie Music Streaming API',
     version: '1.0.0',
     status: 'active',
     endpoints: {
@@ -48,7 +78,21 @@ app.get('/', (req, res) => {
   });
 });
 
+// 404 Fallback
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Resource not found' });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err.message);
+  res.status(500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+  });
+});
+
 // Start Server
 app.listen(PORT, () => {
-  console.log(`🎵 Lora Music Backend running on http://localhost:${PORT}`);
+  console.log(`🎵 Jennie Music Backend running on http://localhost:${PORT}`);
 });

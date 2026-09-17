@@ -3,7 +3,7 @@ import NodeCache from 'node-cache';
 import { generateWaveform } from '../utils/waveform.js';
 
 const cache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
-const APP_NAME = 'LORA_MUSIC_STREAMING';
+const APP_NAME = 'JENNIE_MUSIC_STREAMING';
 
 // List of Audius discovery nodes with fallback
 const DISCOVERY_NODES = [
@@ -20,7 +20,7 @@ const apiClient = axios.create({
 });
 
 /**
- * Format Audius track to Lora schema
+ * Format Audius track to Jennie schema
  */
 export function normalizeAudiusTrack(track) {
   if (!track || !track.id) return null;

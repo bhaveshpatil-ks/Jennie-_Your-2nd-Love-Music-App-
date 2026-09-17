@@ -1,7 +1,7 @@
 {
-  "name": "lora-backend",
+  "name": "jennie-backend",
   "version": "1.0.0",
-  "description": "Backend API service for Lora Music streaming with MongoDB, YouTube, and Jamendo",
+  "description": "Backend API service for Jennie Music streaming with MongoDB, YouTube, and Jamendo",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -13,8 +13,13 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "mongoose": "^8.10.1",
     "node-cache": "^5.1.2",
     "yt-search": "^2.13.1"
+  },
+  "overrides": {
+    "minimatch": "^9.0.5"
   }
 }

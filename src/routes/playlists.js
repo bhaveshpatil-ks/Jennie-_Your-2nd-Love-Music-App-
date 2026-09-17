@@ -51,14 +51,19 @@ playlistsRouter.get('/', async (req, res) => {
  */
 playlistsRouter.post('/', async (req, res) => {
   try {
-    const { title, description, coverUrl, trackIds, tracks } = req.body;
+    const rawTitle = req.body.title ? String(req.body.title).trim().slice(0, 100) : 'New Playlist';
+    const rawDesc = req.body.description ? String(req.body.description).trim().slice(0, 500) : 'Personal curated music collection.';
+    const rawCover = req.body.coverUrl && typeof req.body.coverUrl === 'string' ? req.body.coverUrl.slice(0, 500) : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80';
+    const rawTrackIds = Array.isArray(req.body.trackIds) ? req.body.trackIds.map(String).slice(0, 500) : [];
+    const rawTracks = Array.isArray(req.body.tracks) ? req.body.tracks.slice(0, 500) : [];
+
     const newPlaylist = {
-      id: `pl-${Date.now()}`,
-      title: title || 'New Playlist',
-      description: description || 'Personal curated music collection.',
-      coverUrl: coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
-      trackIds: trackIds || [],
-      tracks: tracks || [],
+      id: `pl-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: rawTitle,
+      description: rawDesc,
+      coverUrl: rawCover,
+      trackIds: rawTrackIds,
+      tracks: rawTracks,
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -79,9 +84,13 @@ playlistsRouter.post('/', async (req, res) => {
  */
 playlistsRouter.get('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
+    if (!id || id.length > 100) {
+      return res.status(400).json({ success: false, message: 'Invalid playlist ID' });
+    }
+
     if (isDbConnected()) {
-      const pl = await Playlist.findOne({ id });
+      const pl = await Playlist.findOne({ id: { $eq: id } });
       if (pl) return res.json({ success: true, data: pl });
     }
 
@@ -100,17 +109,27 @@ playlistsRouter.get('/:id', async (req, res) => {
  */
 playlistsRouter.put('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const update = req.body;
+    const id = String(req.params.id);
+    if (!id || id.length > 100) {
+      return res.status(400).json({ success: false, message: 'Invalid playlist ID' });
+    }
+
+    // Whitelist allowed fields to prevent arbitrary field injection
+    const sanitizedUpdate = {};
+    if (typeof req.body.title === 'string') sanitizedUpdate.title = req.body.title.trim().slice(0, 100);
+    if (typeof req.body.description === 'string') sanitizedUpdate.description = req.body.description.trim().slice(0, 500);
+    if (typeof req.body.coverUrl === 'string') sanitizedUpdate.coverUrl = req.body.coverUrl.slice(0, 500);
+    if (Array.isArray(req.body.trackIds)) sanitizedUpdate.trackIds = req.body.trackIds.map(String).slice(0, 500);
+    if (Array.isArray(req.body.tracks)) sanitizedUpdate.tracks = req.body.tracks.slice(0, 500);
 
     if (isDbConnected()) {
-      const updated = await Playlist.findOneAndUpdate({ id }, update, { new: true });
+      const updated = await Playlist.findOneAndUpdate({ id: { $eq: id } }, { $set: sanitizedUpdate }, { new: true });
       if (updated) return res.json({ success: true, data: updated });
     }
 
     const idx = memoryPlaylists.findIndex((p) => p.id === id);
     if (idx !== -1) {
-      memoryPlaylists[idx] = { ...memoryPlaylists[idx], ...update };
+      memoryPlaylists[idx] = { ...memoryPlaylists[idx], ...sanitizedUpdate };
       return res.json({ success: true, data: memoryPlaylists[idx] });
     }
 
@@ -125,10 +144,13 @@ playlistsRouter.put('/:id', async (req, res) => {
  */
 playlistsRouter.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
+    if (!id || id.length > 100) {
+      return res.status(400).json({ success: false, message: 'Invalid playlist ID' });
+    }
 
     if (isDbConnected()) {
-      await Playlist.findOneAndDelete({ id });
+      await Playlist.findOneAndDelete({ id: { $eq: id } });
     }
 
     memoryPlaylists = memoryPlaylists.filter((p) => p.id !== id);

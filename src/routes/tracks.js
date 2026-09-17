@@ -74,31 +74,34 @@ tracksRouter.get('/featured', async (req, res) => {
  */
 tracksRouter.get('/search', async (req, res) => {
   try {
-    const query = req.query.q || '';
-    const filter = req.query.filter || 'all';
-    const source = req.query.source || 'all';
+    const rawQuery = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 120) : '';
+    const validFilters = ['all', 'songs', 'artists', 'genres'];
+    const validSources = ['all', 'youtube', 'jamendo', 'audius'];
+    
+    const filter = validFilters.includes(req.query.filter) ? req.query.filter : 'all';
+    const source = validSources.includes(req.query.source) ? req.query.source : 'all';
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = Math.max(0, parseInt(req.query.offset) || 0);
 
-    if (!query.trim()) {
+    if (!rawQuery) {
       return res.json({ success: true, count: 0, data: [] });
     }
 
     if (source === 'youtube') {
-      const ytResults = await searchYouTubeSongs(query, limit);
+      const ytResults = await searchYouTubeSongs(rawQuery, limit);
       return res.json({ success: true, source: 'youtube', count: ytResults.length, data: ytResults });
     }
 
     if (source === 'jamendo') {
-      const jamendoResults = await searchJamendo({ query, filter, limit, offset });
+      const jamendoResults = await searchJamendo({ query: rawQuery, filter, limit, offset });
       return res.json({ success: true, source: 'jamendo', count: jamendoResults.length, data: jamendoResults });
     }
 
     // Default 'all': Search YouTube Official Hits FIRST + Audius + Jamendo
     const [ytResults, jamendoResults, audiusResults] = await Promise.all([
-      searchYouTubeSongs(query, limit),
-      searchJamendo({ query, filter, limit: 6, offset }),
-      searchAudiusTracks(query, 4),
+      searchYouTubeSongs(rawQuery, limit),
+      searchJamendo({ query: rawQuery, filter, limit: 6, offset }),
+      searchAudiusTracks(rawQuery, 4),
     ]);
 
     // Priority order: YouTube Hits -> Audius -> Jamendo
@@ -115,7 +118,11 @@ tracksRouter.get('/search', async (req, res) => {
  */
 tracksRouter.get('/genre/:genre', async (req, res) => {
   try {
-    const { genre } = req.params;
+    const genre = typeof req.params.genre === 'string' ? req.params.genre.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 50) : '';
+    if (!genre) {
+      return res.status(400).json({ success: false, message: 'Invalid genre parameter' });
+    }
+
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = Math.max(0, parseInt(req.query.offset) || 0);
 
@@ -171,7 +178,11 @@ tracksRouter.get('/home-feed', async (req, res) => {
  */
 tracksRouter.get('/:id', async (req, res) => {
   try {
-    const track = await getTrackById(req.params.id);
+    const id = typeof req.params.id === 'string' ? req.params.id.trim().slice(0, 100) : '';
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Invalid track ID' });
+    }
+    const track = await getTrackById(id);
     if (!track) {
       return res.status(404).json({ success: false, message: 'Track not found' });
     }

@@ -1,6 +1,6 @@
-# 🎵 Lora Music Backend API
+# 🎵 Jennie Music Backend API
 
-Secure Node.js & Express REST API for the Lora Music Streaming platform with MongoDB Atlas persistence, YouTube search, and Jamendo / Audius stream integration.
+Secure Node.js & Express REST API for the Jennie Music Streaming platform with MongoDB Atlas persistence, YouTube search, and Jamendo / Audius stream integration.
 
 ---
 
@@ -36,7 +36,7 @@ Set the following variables in `.env`:
 PORT=5000
 JAMENDO_CLIENT_ID=your_jamendo_client_id
 JAMENDO_API_URL=https://api.jamendo.com/v3.0
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/lora_music?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/jennie_music?retryWrites=true&w=majority
 ```
 
 ### 3. Run Development Server
