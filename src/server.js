@@ -14,6 +14,9 @@ const PORT = process.env.PORT || 5000;
 // Initialize Database Connection
 connectDB();
 
+// Mask technology fingerprint
+app.disable('x-powered-by');
+
 // Security Headers (Helmet)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -42,7 +45,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 app.use(cors({
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Jennie-Client'],
 }));
 
 // Request body size limit

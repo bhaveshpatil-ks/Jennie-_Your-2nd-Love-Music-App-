@@ -69,7 +69,8 @@ function parseDurationToSeconds(durationStr) {
  */
 async function directYouTubeSearch(query, limit = 20) {
   try {
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' song')}&sp=EgIQAQ%253D%253D`;
+    // Search prioritizing official audio/music release
+    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' official audio')}&sp=EgIQAQ%253D%253D`;
     const res = await youtubeHttp.get(searchUrl);
     const html = res.data || '';
 
@@ -80,7 +81,7 @@ async function directYouTubeSearch(query, limit = 20) {
     const contents =
       json.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
 
-    const tracks = [];
+    const candidates = [];
     for (const item of contents) {
       const v = item.videoRenderer;
       if (!v || !v.videoId) continue;
@@ -89,8 +90,8 @@ async function directYouTubeSearch(query, limit = 20) {
       const durationText = v.lengthText?.simpleText || '3:30';
       const duration = parseDurationToSeconds(durationText);
 
-      // Skip long podcasts/streams > 20 mins
-      if (duration > 1200) continue;
+      // Skip long podcasts/streams > 20 mins or ultra short snippets < 30s
+      if (duration > 1200 || duration < 30) continue;
 
       const rawArtist = v.ownerText?.runs?.[0]?.text || 'YouTube Artist';
       let title = cleanTitle(rawTitle);
@@ -111,28 +112,42 @@ async function directYouTubeSearch(query, limit = 20) {
         thumbnails[thumbnails.length - 1]?.url ||
         `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
 
-      tracks.push({
-        id: `yt-${v.videoId}`,
-        youtubeId: v.videoId,
-        title: title || rawTitle,
-        artist: artist || 'YouTube Artist',
-        album: rawArtist || 'YouTube Music',
-        duration: duration > 0 ? duration : 180,
-        audioUrl: '',
-        coverUrl,
-        genre: 'Pop / Global',
-        mood: 'Official Master',
-        license: 'YouTube Official Embed',
-        source: 'youtube',
-        views: v.viewCountText?.simpleText || 'Popular',
-        timestamp: durationText,
-        waveform: generateWaveform(48, 0.45),
-      });
+      // Studio quality prioritization
+      const isTopic = rawArtist.includes('- Topic') || rawArtist.endsWith('- Topic');
+      const isOfficial = /official\s+(audio|video|music\s+video|track)/i.test(rawTitle);
+      const isLowQuality = /\b(live|concert|reaction|cover|slowed|reverb|parody|karaoke)\b/i.test(rawTitle) && !/\b(live|concert|reaction|cover)\b/i.test(query);
 
-      if (tracks.length >= limit) break;
+      let qualityScore = 0;
+      if (isTopic) qualityScore += 10;
+      if (isOfficial) qualityScore += 6;
+      if (isLowQuality) qualityScore -= 20;
+
+      candidates.push({
+        track: {
+          id: `yt-${v.videoId}`,
+          youtubeId: v.videoId,
+          title: title || rawTitle,
+          artist: artist || 'YouTube Artist',
+          album: isTopic ? `${artist} (Official Studio Master)` : (rawArtist || 'YouTube Music'),
+          duration: duration > 0 ? duration : 180,
+          audioUrl: '',
+          coverUrl,
+          genre: 'Pop / Global',
+          mood: isTopic ? 'Studio Master' : 'Official Release',
+          license: 'YouTube Official Embed',
+          source: 'youtube',
+          views: v.viewCountText?.simpleText || 'Popular',
+          timestamp: durationText,
+          waveform: generateWaveform(48, 0.45),
+        },
+        qualityScore,
+      });
     }
 
-    return tracks;
+    // Sort by audio quality score descending so official studio masters appear first
+    candidates.sort((a, b) => b.qualityScore - a.qualityScore);
+
+    return candidates.slice(0, limit).map((c) => c.track);
   } catch (err) {
     console.warn(`Direct YouTube search failed for "${query}":`, err.message);
     return [];
@@ -145,20 +160,20 @@ async function directYouTubeSearch(query, limit = 20) {
 async function fallbackYtsSearch(query, limit = 20) {
   try {
     const searchResults = await yts({
-      query: `${query} song`,
+      query: `${query} official audio`,
       category: 'music',
       pages: 1,
     });
 
     const videos = searchResults?.videos || [];
-    return videos
-      .filter((v) => v.seconds && v.seconds < 1200)
-      .slice(0, limit)
+    const candidates = videos
+      .filter((v) => v.seconds && v.seconds < 1200 && v.seconds > 30)
       .map((video) => {
         const duration = Math.round(Number(video.seconds || 180));
         const rawTitle = video.title || 'Untitled Track';
         let title = cleanTitle(rawTitle);
-        let artist = video.author?.name?.replace(/ - Topic$/i, '') || 'YouTube Artist';
+        const rawArtist = video.author?.name || 'YouTube Artist';
+        let artist = rawArtist.replace(/ - Topic$/i, '').trim();
 
         if (rawTitle.includes(' - ') && !title.includes(' - ')) {
           // Already cleaned
@@ -173,25 +188,40 @@ async function fallbackYtsSearch(query, limit = 20) {
         const coverUrl =
           video.image || video.thumbnail || `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`;
 
+        const isTopic = rawArtist.includes('- Topic') || rawArtist.endsWith('- Topic');
+        const isOfficial = /official\s+(audio|video|music\s+video|track)/i.test(rawTitle);
+        const isLowQuality = /\b(live|concert|reaction|cover|slowed|reverb|parody|karaoke)\b/i.test(rawTitle) && !/\b(live|concert|reaction|cover)\b/i.test(query);
+
+        let qualityScore = 0;
+        if (isTopic) qualityScore += 10;
+        if (isOfficial) qualityScore += 6;
+        if (isLowQuality) qualityScore -= 20;
+
         return {
-          id: `yt-${video.videoId}`,
-          youtubeId: video.videoId,
-          title: title || rawTitle,
-          artist: artist || 'YouTube Artist',
-          album: video.author?.name || 'YouTube Music',
-          duration: duration > 0 ? duration : 180,
-          audioUrl: '',
-          coverUrl,
-          genre: 'Pop / Global',
-          mood: 'Official Master',
-          license: 'YouTube Official Embed',
-          source: 'youtube',
-          views: video.views || 0,
-          timestamp: video.timestamp || '3:30',
-          waveform: generateWaveform(48, 0.45),
+          track: {
+            id: `yt-${video.videoId}`,
+            youtubeId: video.videoId,
+            title: title || rawTitle,
+            artist: artist || 'YouTube Artist',
+            album: isTopic ? `${artist} (Official Studio Master)` : (video.author?.name || 'YouTube Music'),
+            duration: duration > 0 ? duration : 180,
+            audioUrl: '',
+            coverUrl,
+            genre: 'Pop / Global',
+            mood: isTopic ? 'Studio Master' : 'Official Release',
+            license: 'YouTube Official Embed',
+            source: 'youtube',
+            views: video.views || 0,
+            timestamp: video.timestamp || '3:30',
+            waveform: generateWaveform(48, 0.45),
+          },
+          qualityScore,
         };
       })
       .filter(Boolean);
+
+    candidates.sort((a, b) => b.qualityScore - a.qualityScore);
+    return candidates.slice(0, limit).map((c) => c.track);
   } catch (err) {
     console.warn(`yt-search fallback failed for "${query}":`, err.message);
     return [];
