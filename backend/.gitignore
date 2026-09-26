@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment Secrets & Private Database Credentials (CRITICAL)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs & Diagnostics
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# OS Generated Files
+.DS_Store
+Thumbs.db

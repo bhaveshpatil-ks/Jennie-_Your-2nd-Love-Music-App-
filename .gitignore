@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+**/node_modules/
+package-lock.json
+**/package-lock.json
+
+# Production Builds & Bundles
+dist/
+**/dist/
+build/
+**/build/
+.output/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+*.env
+
+# Cache & Diagnostics
+.cache/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+.eslintcache
+
+# Editor & OS Metadata
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+.rivocode/
+
+# Temporary and Scratch Files
+tmp/
+temp/
+*.tmp
+*.bak

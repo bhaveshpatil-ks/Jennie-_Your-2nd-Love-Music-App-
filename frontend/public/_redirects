@@ -1,0 +1,2 @@
+/api/*  https://jennie-your-2nd-love-music-app-production.up.railway.app/api/:splat  200!
+/*      /index.html                                                                 200
