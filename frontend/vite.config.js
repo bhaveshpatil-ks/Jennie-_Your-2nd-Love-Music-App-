@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_BACKEND_PROXY_TARGET || 'https://jennie-your-2nd-love-music-app-production.up.railway.app';
 
   return {
-    base: './',
+    base: '/',
     plugins: [react()],
     server: {
       port: 5173,

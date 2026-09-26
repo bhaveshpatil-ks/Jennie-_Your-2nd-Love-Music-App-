@@ -104,6 +104,10 @@ export const useAuthStore = create((set, get) => ({
    */
   initAuth: () => {
     set({ loading: true });
+    if (!auth) {
+      set({ loading: false });
+      return () => {};
+    }
     return onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         set({
